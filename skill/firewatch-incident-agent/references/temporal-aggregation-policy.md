@@ -36,7 +36,30 @@
 
 ## 场景化决策
 
-厨房：
+场景化决策不应写死在 `risk_assessor.py` 中。代码只读取 `profile.scene_reasoning_guidance`，具体场景知识由 `config.json`、`lessons_learned` 和 camera profile 提供。
+
+配置示例：
+
+```json
+{
+  "scene_reasoning_guidance": {
+    "kitchen": {
+      "common_false_positive_patterns": ["蒸汽", "油烟"],
+      "policy": "厨房 smoke 容易误报，应提高明火证据权重。",
+      "alert_bias": {
+        "allow_transient_fire": true,
+        "require_temporal_for_smoke_only": true
+      },
+      "risk_rules": {
+        "transient_fire_level": "medium",
+        "smoke_only_false_positive_risk": "medium"
+      }
+    }
+  }
+}
+```
+
+厨房策略可以表达为：
 
 ```text
 smoke 可能来自蒸汽或油烟，单独 smoke 不直接高等级告警；

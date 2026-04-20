@@ -6,9 +6,6 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
-HIGH_RISK_SCENES = {"warehouse", "electrical_room"}
-
-
 def assess_risk(
     temporal_evidence: Dict[str, Any],
     scene_type: str,
@@ -27,9 +24,11 @@ def assess_risk(
     smoke_max_confidence = float(class_max_confidence.get("smoke", 0.0))
     guidance = profile.get("scene_reasoning_guidance", {}) or {}
     alert_bias = guidance.get("alert_bias", {}) or {}
+    risk_rules = guidance.get("risk_rules", {}) or {}
     allow_transient_fire = bool(alert_bias.get("allow_transient_fire", True))
     require_temporal_for_smoke_only = bool(alert_bias.get("require_temporal_for_smoke_only", True))
     followup_on_transient = bool(alert_bias.get("followup_on_transient", True))
+    high_risk_scene = bool(risk_rules.get("high_risk_scene", False))
 
     reasons = []
     level = "none"
@@ -67,8 +66,8 @@ def assess_risk(
     else:
         reasons.append("检测结果只出现在少量帧中。")
 
-    if scene_type in HIGH_RISK_SCENES:
-        reasons.append(f"{scene_type} 按高风险场景处理。")
+    if high_risk_scene:
+        reasons.append("当前场景策略标记为高风险场景。")
 
     transient_fire_threshold = float(thresholds.get("transient_fire_confidence", 0.8))
     is_transient_fire = (
@@ -84,32 +83,25 @@ def assess_risk(
     if is_transient_fire:
         event_type = "transient_fire"
         reasons.append("出现单帧或短时高置信度 fire，按突发型明火证据处理，不因缺少连续帧而丢弃。")
-        if scene_type in HIGH_RISK_SCENES:
-            level = "high"
-            false_positive_risk = "medium"
-        elif scene_type == "outdoor":
-            level = "medium"
-            false_positive_risk = "medium"
-        else:
-            level = "medium"
-            false_positive_risk = "medium"
+        level = risk_rules.get("transient_fire_level", "medium")
+        false_positive_risk = risk_rules.get("transient_fire_false_positive_risk", "medium")
         suggested_action = "建议快速人工复核，并启动短时加密复检。"
         if followup_on_transient:
             reasons.append("建议触发 burst follow-up：短时间内提高抽帧密度复检。")
     elif (
         max_confidence >= thresholds["high_confidence"]
         and continuous_hits >= thresholds["continuous_hits_for_high"]
-    ) or (has_fire_and_smoke and scene_type in HIGH_RISK_SCENES):
+    ) or (has_fire_and_smoke and high_risk_scene):
         event_type = "sustained_fire_or_smoke"
-        level = "high"
-        false_positive_risk = "low"
+        level = risk_rules.get("sustained_combo_level", "high")
+        false_positive_risk = risk_rules.get("sustained_combo_false_positive_risk", "low")
         suggested_action = "建议立即人工复核，并按现场预案升级处置。"
     elif max_confidence >= thresholds["medium_confidence"] or continuous_hits >= thresholds["continuous_hits_for_medium"]:
         event_type = "sustained_fire_or_smoke" if is_sustained else "possible_false_positive"
         if smoke_only_requires_temporal and smoke_count > 0 and continuous_hits < thresholds["continuous_hits_for_medium"]:
-            level = "low"
-            false_positive_risk = "high"
-            reasons.append("该场景 smoke 单独出现需要时间连续性确认。")
+            level = risk_rules.get("smoke_only_level_when_not_temporal", "low")
+            false_positive_risk = risk_rules.get("smoke_only_false_positive_risk", "high")
+            reasons.append(risk_rules.get("smoke_only_note", "该场景 smoke 单独出现需要时间连续性确认。"))
             suggested_action = "建议记录并复核，必要时短时加密复检。"
         else:
             level = "medium"
@@ -118,15 +110,10 @@ def assess_risk(
     else:
         event_type = "possible_false_positive"
         level = "low"
-        false_positive_risk = "high"
+        false_positive_risk = risk_rules.get("sparse_fire_false_positive_risk", "high")
+        if fire_count > 0:
+            reasons.append(risk_rules.get("sparse_fire_note", "单帧或低置信度 fire-like 命中需要复核。"))
         suggested_action = "建议记录为低风险疑似异常，后续结合人工反馈修正画像。"
-
-    if scene_type == "outdoor" and continuous_hits < thresholds["continuous_hits_for_medium"]:
-        false_positive_risk = "high"
-        reasons.append("室外单帧 fire-like 命中常见于反光或车灯，误报风险较高。")
-    if scene_type == "kitchen" and "smoke" in classes and "fire" not in classes:
-        false_positive_risk = "medium"
-        reasons.append("厨房蒸汽可能模拟 smoke，需要人工复核。")
 
     return {
         "level": level,

@@ -98,6 +98,18 @@
         "allow_transient_fire": true,
         "require_temporal_for_smoke_only": true,
         "followup_on_transient": true
+      },
+      "risk_rules": {
+        "high_risk_scene": false,
+        "transient_fire_level": "medium",
+        "transient_fire_false_positive_risk": "medium",
+        "sustained_combo_level": "high",
+        "sustained_combo_false_positive_risk": "low",
+        "smoke_only_level_when_not_temporal": "low",
+        "smoke_only_false_positive_risk": "medium",
+        "smoke_only_note": "该场景 smoke 单独出现可能来自蒸汽、油烟或其他非火情来源，需要时间连续性或明火证据确认。",
+        "sparse_fire_false_positive_risk": "medium",
+        "sparse_fire_note": "该场景存在正常明火或短时火光可能，单帧 fire 需要快速复核。"
       }
     },
     "outdoor": {
@@ -109,6 +121,18 @@
         "allow_transient_fire": true,
         "require_temporal_for_smoke_only": true,
         "followup_on_transient": true
+      },
+      "risk_rules": {
+        "high_risk_scene": false,
+        "transient_fire_level": "medium",
+        "transient_fire_false_positive_risk": "medium",
+        "sustained_combo_level": "high",
+        "sustained_combo_false_positive_risk": "low",
+        "smoke_only_level_when_not_temporal": "low",
+        "smoke_only_false_positive_risk": "medium",
+        "smoke_only_note": "该场景 smoke 单独出现需要结合风向、画面质量和连续性复核。",
+        "sparse_fire_false_positive_risk": "high",
+        "sparse_fire_note": "该场景单帧 fire-like 命中常见于反光、车灯或远处灯光，误报风险较高。"
       }
     },
     "electrical_room": {
@@ -120,6 +144,18 @@
         "allow_transient_fire": true,
         "require_temporal_for_smoke_only": false,
         "followup_on_transient": true
+      },
+      "risk_rules": {
+        "high_risk_scene": true,
+        "transient_fire_level": "high",
+        "transient_fire_false_positive_risk": "medium",
+        "sustained_combo_level": "high",
+        "sustained_combo_false_positive_risk": "low",
+        "smoke_only_level_when_not_temporal": "medium",
+        "smoke_only_false_positive_risk": "medium",
+        "smoke_only_note": "该场景 smoke 权重较高，即使置信度不高也应复核。",
+        "sparse_fire_false_positive_risk": "medium",
+        "sparse_fire_note": "该场景出现短时 fire 需要快速复核。"
       }
     },
     "warehouse": {
@@ -131,6 +167,18 @@
         "allow_transient_fire": true,
         "require_temporal_for_smoke_only": true,
         "followup_on_transient": true
+      },
+      "risk_rules": {
+        "high_risk_scene": true,
+        "transient_fire_level": "high",
+        "transient_fire_false_positive_risk": "medium",
+        "sustained_combo_level": "high",
+        "sustained_combo_false_positive_risk": "low",
+        "smoke_only_level_when_not_temporal": "low",
+        "smoke_only_false_positive_risk": "medium",
+        "smoke_only_note": "该场景 smoke 单独出现需要结合连续性和现场复核。",
+        "sparse_fire_false_positive_risk": "medium",
+        "sparse_fire_note": "该场景出现短时 fire 应快速复核，避免漏掉初起火情。"
       }
     },
     "unknown": {
@@ -142,6 +190,18 @@
         "allow_transient_fire": true,
         "require_temporal_for_smoke_only": true,
         "followup_on_transient": true
+      },
+      "risk_rules": {
+        "high_risk_scene": false,
+        "transient_fire_level": "medium",
+        "transient_fire_false_positive_risk": "medium",
+        "sustained_combo_level": "medium",
+        "sustained_combo_false_positive_risk": "medium",
+        "smoke_only_level_when_not_temporal": "low",
+        "smoke_only_false_positive_risk": "high",
+        "smoke_only_note": "未知场景下 smoke 单独出现需要更多证据或人工反馈确认。",
+        "sparse_fire_false_positive_risk": "high",
+        "sparse_fire_note": "未知场景下单帧低置信度 fire-like 命中应先记录并复核。"
       }
     }
   },
