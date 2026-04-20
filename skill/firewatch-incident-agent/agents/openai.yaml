@@ -1,0 +1,3 @@
+display_name: FireWatch Incident Agent
+short_description: Fire patrols with evolving scene knowledge
+default_prompt: Plan and run a FireWatch patrol using predict-wise profiles, multi-frame evidence aggregation, and scene knowledge updates.

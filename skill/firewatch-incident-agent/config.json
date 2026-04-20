@@ -1,0 +1,57 @@
+{
+  "fire_detection_service_url": "http://36.103.239.143:8899",
+  "default_resource_budget": "balanced",
+  "notify_on": ["medium", "high", "critical"],
+  "risk_thresholds": {
+    "high_confidence": 0.75,
+    "medium_confidence": 0.5,
+    "low_confidence": 0.3,
+    "continuous_hits_for_high": 3,
+    "continuous_hits_for_medium": 2
+  },
+  "scene_profiles": {
+    "warehouse": {
+      "confidence": 0.35,
+      "duration": 30,
+      "interval": 1.0,
+      "priority": "high",
+      "reason": "Warehouse areas have higher fire-spread impact, so inspect longer and sample more densely."
+    },
+    "electrical_room": {
+      "confidence": 0.3,
+      "duration": 40,
+      "interval": 0.8,
+      "priority": "high",
+      "reason": "Electrical rooms should treat smoke as important even when confidence is low."
+    },
+    "kitchen": {
+      "confidence": 0.5,
+      "duration": 25,
+      "interval": 1.5,
+      "priority": "normal",
+      "reason": "Kitchen steam and normal flames can cause false positives, so require stronger evidence."
+    },
+    "outdoor": {
+      "confidence": 0.6,
+      "duration": 15,
+      "interval": 2.0,
+      "priority": "normal",
+      "reason": "Outdoor glare and headlights often mimic flames, so sample lightly with a higher threshold."
+    },
+    "unknown": {
+      "confidence": 0.45,
+      "duration": 20,
+      "interval": 1.5,
+      "priority": "normal",
+      "reason": "Unknown scenes use balanced defaults until enough observations exist."
+    }
+  },
+  "knowledge_paths": {
+    "observations": "knowledge/observations.jsonl",
+    "incident_cases": "knowledge/incident_cases.jsonl",
+    "lessons_learned": "knowledge/lessons_learned.jsonl",
+    "pending_review": "knowledge/pending_review.jsonl",
+    "source_index": "knowledge/source_index.json"
+  },
+  "output_dir": "outputs"
+}
