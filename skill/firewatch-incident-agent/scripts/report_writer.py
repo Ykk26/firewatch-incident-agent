@@ -27,6 +27,7 @@ def render_incident_report(event: Dict[str, Any]) -> str:
         source_id=event["source_id"],
         scene_type=event["scene_type"],
         risk_level=risk["level"],
+        event_type=risk.get("event_type", "unknown"),
         false_positive_risk=risk["false_positive_risk"],
         confidence=profile["confidence"],
         duration=profile["duration"],
@@ -39,6 +40,7 @@ def render_incident_report(event: Dict[str, Any]) -> str:
         max_confidence=f"{evidence['max_confidence']:.2f}",
         classes=", ".join(evidence["classes"]) or "none",
         risk_reasons=_bullet(risk["reasons"]),
+        suggested_action=risk.get("suggested_action", "Verify the scene with on-site staff."),
         evidence_frames=_bullet(evidence["evidence_frames"]),
     )
 

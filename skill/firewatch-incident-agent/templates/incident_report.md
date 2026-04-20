@@ -4,6 +4,7 @@ Incident: {incident_id}
 Source: {source_id}
 Scene: {scene_type}
 Risk: {risk_level}
+Event type: {event_type}
 False-positive risk: {false_positive_risk}
 
 ## Predict-wise Profile
@@ -31,5 +32,7 @@ False-positive risk: {false_positive_risk}
 {evidence_frames}
 
 ## Suggested Action
+
+{suggested_action}
 
 Verify the scene with on-site staff and follow the local emergency response plan for the facility.

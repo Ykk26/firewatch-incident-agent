@@ -27,12 +27,21 @@ def aggregate_detection_result(result: Dict[str, Any]) -> Dict[str, Any]:
     confidences = [float(item.get("confidence", 0.0)) for item in detections]
     classes = sorted({str(item.get("class_name", "unknown")) for item in detections})
     frames = sorted({int(item.get("frame", 0)) for item in detections})
+    class_counts: Dict[str, int] = {}
+    class_max_confidence: Dict[str, float] = {}
+    for item in detections:
+        class_name = str(item.get("class_name", "unknown"))
+        confidence = float(item.get("confidence", 0.0))
+        class_counts[class_name] = class_counts.get(class_name, 0) + 1
+        class_max_confidence[class_name] = max(class_max_confidence.get(class_name, 0.0), confidence)
 
     return {
         "frames_analyzed": max(frames) if frames else 0,
         "hit_count": len(detections),
         "max_confidence": max(confidences) if confidences else 0.0,
         "classes": classes,
+        "class_counts": class_counts,
+        "class_max_confidence": class_max_confidence,
         "continuous_hit_count": _continuous_hit_count(detections),
         "evidence_frames": result.get("evidence_frames", []) or [],
         "raw_status": result.get("status", "unknown"),
