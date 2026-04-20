@@ -41,25 +41,35 @@ def run_patrol(request: Dict[str, Any]) -> Dict[str, Any]:
 
     for target in request.get("targets", []):
         source_id = target.get("source_id", "unknown")
-        scene_type = target.get("scene_type", "unknown")
+        declared_scene_type = target.get("scene_type", "unknown")
         historical_profile = find_profile(camera_profiles, source_id, target.get("stream_url"))
         if historical_profile and not target.get("historical_camera_profile"):
             target = dict(target)
             target["historical_camera_profile"] = historical_profile
-        history = matching_history(lessons, source_id=source_id, scene_type=scene_type)
+
         profile = build_predict_profile(
             target,
             config=config,
-            history=history,
             resource_budget=budget,
             patrol_mode=patrol_mode,
         )
-        effective_scene_type = profile.get("scene_type", scene_type)
+        effective_scene_type = profile.get("scene_type", declared_scene_type)
+        history_scene_type = effective_scene_type if effective_scene_type != "unknown" else None
+        history = matching_history(lessons, source_id=source_id, scene_type=history_scene_type)
+        if history:
+            profile = build_predict_profile(
+                target,
+                config=config,
+                history=history,
+                resource_budget=budget,
+                patrol_mode=patrol_mode,
+            )
+            effective_scene_type = profile.get("scene_type", declared_scene_type)
 
         result = client.detect_stream(target["stream_url"], profile)
 
-        temporal_evidence = aggregate_detection_result(result)
-        risk = assess_risk(temporal_evidence, effective_scene_type, profile, config["risk_thresholds"])
+        temporal_evidence = aggregate_detection_result(result, config.get("temporal_policy"))
+        risk = assess_risk(temporal_evidence, profile, config["risk_thresholds"])
         event = {
             "incident_id": _incident_id(source_id),
             "source_id": source_id,

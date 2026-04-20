@@ -19,6 +19,21 @@ OpenClaw 负责把这个单帧能力升级为视频巡检能力：
   -> 下一次巡检策略优化
 ```
 
+## 下一阶段：Adaptive Patrol Loop
+
+当前架构是一次巡检任务内为每路视频流生成初始 predict-wise profile，然后调用检测、聚合证据、研判风险并更新知识。后续可以在 Orchestrator 外层增加 adaptive patrol loop，让长期巡检具备动态调频能力：
+
+```text
+unknown 流批量接入
+  -> bulk_scout 轻量普查
+  -> 多轮无目标：降低巡检频率或延长下一轮间隔
+  -> 命中疑似 fire/smoke：进入 burst follow-up，加密抽帧并延长观察
+  -> 风险消退：回落到 normal 或低频巡检
+  -> 人工确认：写入知识库，影响后续 camera profile
+```
+
+该能力暂不属于初版执行逻辑，避免把建议型 follow-up 误写成已自动执行的调度能力。
+
 ## 模块划分
 
 - `Predict-wise Planner`：先基于弱线索和历史经验构建 camera profile，再为每一路视频流生成独立推理 profile。

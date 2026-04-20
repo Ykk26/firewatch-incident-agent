@@ -135,7 +135,8 @@ Orchestrator
   如果用户或系统已经明确标注，则直接采用。
 
 弱线索：
-  室内/室外、区域名称、用户标签、风险区域、备注关键词。
+  由 OpenClaw 从用户自然语言中抽取，例如室内/室外、区域名称、用户标签、风险区域、备注关键词。
+  这是内部中间信息，不要求用户手写 hints JSON。
 
 资源预算：
   fast、balanced、thorough。
@@ -181,6 +182,21 @@ OpenClaw 聚合后回答：
 多帧 fire 0.42、0.48、0.53，并伴随 smoke
   -> 虽然单帧置信度不高，但连续出现，升级为中/高风险。
 ```
+
+### 5.1 下一阶段：自适应巡检调频
+
+当前初版已经能在任务开始前根据 unknown、场景线索、历史画像和资源预算生成 predict-wise 初始策略，但还没有实现任务运行中的动态调频。下一阶段可以增加 adaptive patrol loop：
+
+```text
+大量 unknown 视频流接入
+  -> 第一轮使用 bulk_scout 轻量普查
+  -> 连续没有检测到 fire/smoke 的流，下调巡检频率或延长下一轮间隔
+  -> 检测到疑似 fire/smoke 的流，进入 burst follow-up，提高抽帧密度并延长观察时间
+  -> 风险消退后回落到普通巡检
+  -> 被人工确认为真实火情、误报或演练后，写入知识库并影响后续 camera profile
+```
+
+这个能力适合放在后续版本中实现，不应在当前 skill 文档中暗示已经自动执行。当前版本只生成初始 predict-wise profile，并在检测后给出 follow-up 建议和知识更新。
 
 ### 6. 知识智能迭代
 
@@ -243,6 +259,7 @@ predict-wise 只读取已审核经验。
 - [x] 支持跨任务通过 source_id 或 stream_url_hash 复用历史画像
 - [x] 增加多路径证据聚合策略：transient_fire、sustained_fire_or_smoke、possible_false_positive
 - [x] 支持单帧高置信度 fire 触发快速复核，而不是被多帧规则过滤
+- [x] 增加 confidence_trend，支持 rising、falling、stable、spiky、insufficient 趋势研判
 - [x] 通过 Python 编译检查
 - [x] 通过 skill 校验
 
@@ -261,6 +278,8 @@ predict-wise 只读取已审核经验。
 - [ ] 增加审核通过后写入 `lessons_learned.jsonl`
 - [ ] 让 predict-wise 读取已审核经验并解释参数变化
 - [ ] 增加资源节省指标：统一参数 vs predict-wise 推理帧数对比
+- [ ] 设计 adaptive patrol loop：大量 unknown 流先 bulk_scout，长期无目标流降频，疑似异常流 burst follow-up 加密复检
+- [ ] 为 adaptive patrol loop 增加状态字段：last_seen_target_at、quiet_rounds、followup_until、current_patrol_tier
 - [ ] 接入真实火焰/烟雾检测服务做端到端视频流测试
 - [ ] 生成飞书告警文本或卡片
 - [ ] 接入 `fire-knowledge-search` 和 `fire-knowledge-review`

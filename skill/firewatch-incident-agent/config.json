@@ -30,6 +30,11 @@
     "continuous_hits_for_high": 3,
     "continuous_hits_for_medium": 2
   },
+  "temporal_policy": {
+    "continuous_frame_gap": 60,
+    "trend_delta": 0.15,
+    "spike_margin": 0.2
+  },
   "scene_profiles": {
     "warehouse": {
       "confidence": 0.35,

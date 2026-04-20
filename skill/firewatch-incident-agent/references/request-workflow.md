@@ -9,14 +9,16 @@ rtsp://10.0.0.2/live 这个可能是厨房
 rtsp://10.0.0.3/live 可能是室外通道
 ```
 
-OpenClaw 应先把它整理成临时 patrol request，再交给脚本执行。
+OpenClaw 应先把它整理成临时 patrol request，再交给脚本执行。用户不需要知道或手写 patrol request；它只是 OpenClaw 与脚本之间的稳定接口。
+
+`hints` 是内部中间字段，用来保存从自然语言中抽取出的弱线索。它不是用户必须提供的输入，也不能被当成确定事实。
 
 ## 整理规则
 
 1. 提取所有视频流地址：`rtsp://`、`rtmp://`、`.flv`、`.m3u8`。
 2. 为每路生成稳定 `source_id`。如果用户没有提供名称，使用 `stream-1`、`stream-2`。
 3. 场景是可选信息。用户没说时，设置 `scene_type: "unknown"`。
-4. 用户说“可能是厨房/后厨/室外/配电间/仓库”等，不要直接当事实；写入 `hints.location_hint` 或 `hints.user_label`。
+4. 用户说“可能是厨房/后厨/室外/配电间/仓库”等，不要直接当事实；由 OpenClaw 写入 `hints.location_hint` 或 `hints.user_label`。
 5. 不要在 patrol request 中写检测结果。检测结果必须来自检测 API 返回。
 
 ## 示例
@@ -67,7 +69,7 @@ rtsp://cam-c/live 可能是室外通道
 
 在生成 predict-wise profile 前，结合：
 
-- 用户 hints
+- OpenClaw 从用户自然语言中抽取出的 `hints`
 - `config.json` 的 `scene_reasoning_guidance`
 - `knowledge/lessons_learned.jsonl` 中已审核经验
 
@@ -101,8 +103,8 @@ unknown 流先轻量普查；
 
 ```text
 没有场景的流：scene_type=unknown, hints={}
-第三路：hints.location_hint=用户说可能是厨房
-第十一路：hints.location_hint=用户说可能是配电间
+第三路：OpenClaw 抽取 hints.location_hint=用户说可能是厨房
+第十一路：OpenClaw 抽取 hints.location_hint=用户说可能是配电间
 patrol_mode=bulk_scout
 ```
 
@@ -113,7 +115,7 @@ patrol_mode=bulk_scout
 ```text
 OpenClaw 应尽量保持已有 source_id；
 如果 source_id 变化，也可以通过 stream_url_hash 复用历史 camera profile；
-新增流按 unknown 或本次 hints 处理。
+新增流按 unknown 或本次自然语言抽取出的 hints 处理。
 ```
 
 示例：

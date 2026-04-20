@@ -19,7 +19,7 @@ FireWatch 的做法是：
 ## 输入因素
 
 - `scene_type`：可选显式场景；没有时使用 unknown。
-- `hints`：弱线索，例如 indoor_outdoor、risk_zone、location_hint、user_label。
+- `hints`：OpenClaw 从自然语言中抽取出的内部弱线索，例如 indoor_outdoor、risk_zone、location_hint、user_label。用户不需要手写这些字段。
 - `resource_budget`：fast、balanced、thorough。
 - `patrol_mode`：bulk_scout、normal、focused。
 - `history`：真实火情、误报、演练、已审核经验。
@@ -109,7 +109,7 @@ FireWatch 的做法是：
 
 ## 弱线索策略
 
-当 `scene_type` 缺失或为 unknown 时，按以下顺序使用弱线索：
+当 `scene_type` 缺失或为 unknown 时，按以下顺序使用 OpenClaw 抽取出的弱线索：
 
 ```text
 1. indoor_outdoor=outdoor -> outdoor 倾向策略
@@ -154,6 +154,21 @@ FireWatch 的做法是：
 大量 unknown 流先省资源普查；
 已知重点场景直接精细化检测。
 ```
+
+## 下一阶段：自适应巡检调频
+
+当前版本的 predict-wise 主要负责生成每一路视频流的初始检测参数；它不会在一次任务运行中持续调度同一路视频流。后续可以增加 adaptive patrol loop，用于长期巡检：
+
+```text
+10 路 unknown 视频流接入
+  -> 第一轮使用 bulk_scout 轻量普查
+  -> 没有检测到目标的流进入低频巡检
+  -> 检测到疑似 fire/smoke 的流进入 burst follow-up
+  -> burst follow-up 临时提高抽帧密度、延长检测时长、降低漏报风险
+  -> 多轮无异常后回落到普通或低频巡检
+```
+
+这属于后续增强能力。当前实现只会在 `risk.suggested_action` 和 `risk.reasons` 中建议短时加密复检，不会自动再次调用检测 API。
 
 ## 历史经验影响
 

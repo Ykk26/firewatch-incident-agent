@@ -6,18 +6,26 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
+def _raise_false_positive_risk(value: str) -> str:
+    order = ["low", "medium", "high", "critical"]
+    if value not in order:
+        return "medium"
+    return order[min(order.index(value) + 1, len(order) - 1)]
+
+
 def assess_risk(
     temporal_evidence: Dict[str, Any],
-    scene_type: str,
     profile: Dict[str, Any],
     thresholds: Dict[str, Any],
 ) -> Dict[str, Any]:
     hit_count = int(temporal_evidence.get("hit_count", 0))
-    max_confidence = float(temporal_evidence.get("max_confidence", 0.0))
+    raw_max_confidence = float(temporal_evidence.get("max_confidence", 0.0))
     continuous_hits = int(temporal_evidence.get("continuous_hit_count", 0))
     classes = set(temporal_evidence.get("classes", []))
     class_counts = temporal_evidence.get("class_counts", {}) or {}
     class_max_confidence = temporal_evidence.get("class_max_confidence", {}) or {}
+    confidence_trend = temporal_evidence.get("confidence_trend", {}) or {}
+    trend = confidence_trend.get("trend", "insufficient")
     fire_count = int(class_counts.get("fire", 0))
     smoke_count = int(class_counts.get("smoke", 0))
     fire_max_confidence = float(class_max_confidence.get("fire", 0.0))
@@ -28,7 +36,17 @@ def assess_risk(
     allow_transient_fire = bool(alert_bias.get("allow_transient_fire", True))
     require_temporal_for_smoke_only = bool(alert_bias.get("require_temporal_for_smoke_only", True))
     followup_on_transient = bool(alert_bias.get("followup_on_transient", True))
+    fire_weight = float(alert_bias.get("fire_weight", 1.0))
+    smoke_weight = float(alert_bias.get("smoke_weight", 1.0))
     high_risk_scene = bool(risk_rules.get("high_risk_scene", False))
+    weighted_fire_confidence = min(1.0, fire_max_confidence * fire_weight)
+    weighted_smoke_confidence = min(1.0, smoke_max_confidence * smoke_weight)
+    weighted_scores = []
+    if fire_count > 0:
+        weighted_scores.append(weighted_fire_confidence)
+    if smoke_count > 0:
+        weighted_scores.append(weighted_smoke_confidence)
+    effective_confidence = max(weighted_scores) if weighted_scores else raw_max_confidence
 
     reasons = []
     level = "none"
@@ -45,12 +63,15 @@ def assess_risk(
             "suggested_action": suggested_action,
         }
 
-    if max_confidence >= thresholds["high_confidence"]:
-        reasons.append(f"最高置信度较高（{max_confidence:.2f}）。")
-    elif max_confidence >= thresholds["medium_confidence"]:
-        reasons.append(f"最高置信度中等（{max_confidence:.2f}）。")
+    if effective_confidence >= thresholds["high_confidence"]:
+        reasons.append(f"加权后最高证据分较高（{effective_confidence:.2f}，原始最高置信度 {raw_max_confidence:.2f}）。")
+    elif effective_confidence >= thresholds["medium_confidence"]:
+        reasons.append(f"加权后最高证据分中等（{effective_confidence:.2f}，原始最高置信度 {raw_max_confidence:.2f}）。")
     else:
-        reasons.append(f"最高置信度偏低（{max_confidence:.2f}）。")
+        reasons.append(f"加权后最高证据分偏低（{effective_confidence:.2f}，原始最高置信度 {raw_max_confidence:.2f}）。")
+
+    if fire_weight != 1.0 or smoke_weight != 1.0:
+        reasons.append(f"场景策略权重已生效：fire x{fire_weight:.2f}，smoke x{smoke_weight:.2f}。")
 
     if {"fire", "smoke"}.issubset(classes):
         reasons.append("采样帧中同时出现 fire 和 smoke。")
@@ -66,6 +87,15 @@ def assess_risk(
     else:
         reasons.append("检测结果只出现在少量帧中。")
 
+    if trend == "rising":
+        reasons.append("采样窗口内检测置信度呈上升趋势，异常信号可能正在增强。")
+    elif trend == "falling":
+        reasons.append("采样窗口内检测置信度呈下降趋势，异常信号可能正在消退。")
+    elif trend == "spiky":
+        reasons.append("采样窗口内检测置信度呈单点尖峰，误报或短时扰动风险较高。")
+    elif trend == "stable":
+        reasons.append("采样窗口内检测置信度整体稳定。")
+
     if high_risk_scene:
         reasons.append("当前场景策略标记为高风险场景。")
 
@@ -73,7 +103,7 @@ def assess_risk(
     is_transient_fire = (
         allow_transient_fire
         and fire_count > 0
-        and fire_max_confidence >= transient_fire_threshold
+        and weighted_fire_confidence >= transient_fire_threshold
         and continuous_hits < thresholds["continuous_hits_for_medium"]
     )
     is_sustained = continuous_hits >= thresholds["continuous_hits_for_medium"]
@@ -89,14 +119,14 @@ def assess_risk(
         if followup_on_transient:
             reasons.append("建议触发 burst follow-up：短时间内提高抽帧密度复检。")
     elif (
-        max_confidence >= thresholds["high_confidence"]
+        effective_confidence >= thresholds["high_confidence"]
         and continuous_hits >= thresholds["continuous_hits_for_high"]
     ) or (has_fire_and_smoke and high_risk_scene):
         event_type = "sustained_fire_or_smoke"
         level = risk_rules.get("sustained_combo_level", "high")
         false_positive_risk = risk_rules.get("sustained_combo_false_positive_risk", "low")
         suggested_action = "建议立即人工复核，并按现场预案升级处置。"
-    elif max_confidence >= thresholds["medium_confidence"] or continuous_hits >= thresholds["continuous_hits_for_medium"]:
+    elif effective_confidence >= thresholds["medium_confidence"] or continuous_hits >= thresholds["continuous_hits_for_medium"]:
         event_type = "sustained_fire_or_smoke" if is_sustained else "possible_false_positive"
         if smoke_only_requires_temporal and smoke_count > 0 and continuous_hits < thresholds["continuous_hits_for_medium"]:
             level = risk_rules.get("smoke_only_level_when_not_temporal", "low")
@@ -115,10 +145,20 @@ def assess_risk(
             reasons.append(risk_rules.get("sparse_fire_note", "单帧或低置信度 fire-like 命中需要复核。"))
         suggested_action = "建议记录为低风险疑似异常，后续结合人工反馈修正画像。"
 
+    if trend == "spiky" and level not in {"high", "critical"}:
+        false_positive_risk = _raise_false_positive_risk(false_positive_risk)
+
     return {
         "level": level,
         "event_type": event_type,
         "false_positive_risk": false_positive_risk,
         "reasons": reasons,
         "suggested_action": suggested_action,
+        "weighted_evidence": {
+            "fire_weight": fire_weight,
+            "smoke_weight": smoke_weight,
+            "weighted_fire_confidence": weighted_fire_confidence,
+            "weighted_smoke_confidence": weighted_smoke_confidence,
+            "effective_confidence": effective_confidence,
+        },
     }

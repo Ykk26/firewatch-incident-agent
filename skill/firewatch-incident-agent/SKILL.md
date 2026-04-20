@@ -9,16 +9,37 @@ description: Orchestrate intelligent fire patrols for camera and video streams. 
 
 使用本 skill 编排火情视频巡检工作流。它面向火焰/烟雾检测服务或视觉模型 API，负责多路巡检、predict-wise 参数规划、多帧证据聚合、风险研判、报告生成和场景知识演化。
 
+## 当前实现状态
+
+当前版本已经实现一条单轮视频巡检链路：从自然语言整理出视频流请求，生成每路 predict-wise profile，调用检测服务，在采样窗口内聚合多帧检测结果，完成风险研判并写入 observation 和 camera profile。
+
+已具备的能力：
+
+- **predict-wise 初始策略**：按 unknown、自然语言弱线索、历史 camera profile 和资源预算，为每一路视频流生成独立检测参数。
+- **bulk_scout 轻量普查**：大量未知视频流可先使用短时长、大间隔、较高阈值的轻量扫描；带厨房、配电间、仓库、室外等线索的流直接走对应场景策略。
+- **视频级证据聚合**：`temporal_aggregator.py` 输出命中数量、命中帧数量、连续命中、类别统计、每类最大置信度和 `confidence_trend`。
+- **置信度趋势研判**：`confidence_trend` 支持 `rising`、`falling`、`stable`、`spiky`、`insufficient`，用于描述采样窗口内异常信号增强、消退、稳定或单点尖峰。
+- **场景权重研判**：`risk_assessor.py` 读取 `scene_reasoning_guidance.alert_bias.fire_weight` 和 `smoke_weight`，把场景知识实际纳入有效证据分。
+- **多路径风险分类**：风险结果区分 `transient_fire`、`sustained_fire_or_smoke`、`possible_false_positive` 和 `none`。多帧连续是增强证据，但短时高置信度 fire 不会被直接过滤。
+- **跨任务画像复用**：`camera_profile_store.py` 使用 `source_id` 和 `stream_url_hash` 更新并复用摄像头画像。
+
+当前边界：
+
+- 当前版本不做运行中的自动动态调频；“无目标降频、疑似异常加密复检”属于下一阶段 adaptive patrol loop。
+- `burst follow-up` 现在只作为建议写入风险原因和建议动作，不会自动二次调用检测 API。
+- 新经验目前写入 observation 和 camera profile；人工确认、pending review、已审核 lessons 的完整闭环仍是后续增强。
+- FireWatch 调用外部火焰/烟雾检测服务，不在 skill 内实现底层视觉模型或视频解码。
+
 ## 核心工作流
 
 1. 接收用户自然语言输入中的一个或多个视频流地址，场景信息可选。
-2. 由 OpenClaw 根据用户描述整理临时 patrol request：`source_id`、`stream_url`、可选 `scene_type`、可选 `hints`、可选 `roi`、`patrol_mode` 和资源约束。不要要求用户手写 JSON；JSON 只是脚本接口。
+2. 由 OpenClaw 根据用户描述整理临时 patrol request：`source_id`、`stream_url`、可选 `scene_type`、内部 `hints`、可选 `roi`、`patrol_mode` 和资源约束。`hints` 是 OpenClaw 从自然语言中抽取的弱线索，不是要求用户填写的字段；不要要求用户手写 JSON，JSON 只是脚本接口。
 3. 如果用户一次性提交大量视频流且多数没有场景线索，设置 `patrol_mode: "bulk_scout"`：unknown 流走轻量普查；带厨房、配电间、仓库、室外等线索的流跳过轻量普查，直接走对应场景精细化策略。
 4. 使用 `scripts/camera_profile_store.py` 读取历史 camera profile。优先通过 `source_id` 匹配；如果 source_id 变化，则通过 `stream_url_hash` 匹配。不要在知识库中明文保存真实视频流地址。
-5. 结合本次用户 hints、`config.json` 中的通用场景知识、`knowledge/lessons_learned.jsonl` 中的已审核经验，以及历史 camera profile，分析每一路流的 camera profile。
+5. 结合本次从用户描述抽取出的 `hints`、`config.json` 中的通用场景知识、`knowledge/lessons_learned.jsonl` 中的已审核经验，以及历史 camera profile，分析每一路流的 camera profile。
 6. 使用 `scripts/predict_planner.py` 为每一路视频流生成 predict-wise profile。profile 必须解释参数依据，例如 unknown 轻量普查、厨房蒸汽误报、配电间 smoke 权重、历史画像复用等。
 7. 使用 `scripts/fire_detection_client.py` 调用火焰/烟雾检测 API。
-8. 使用 `scripts/temporal_aggregator.py` 聚合检测结果。多帧连续是增强证据，但不是唯一门槛；单帧高置信度 fire 应进入突发明火证据路径。
+8. 使用 `scripts/temporal_aggregator.py` 聚合检测结果。多帧连续和 `confidence_trend` 是增强证据，但不是唯一门槛；单帧高置信度 fire 应进入突发明火证据路径。
 9. 使用 `scripts/risk_assessor.py` 按多路径证据策略评估风险：`transient_fire`、`sustained_fire_or_smoke`、`possible_false_positive` 或 `none`。
 10. 使用 `scripts/report_writer.py` 生成 Markdown 报告或告警文本。
 11. 使用 `scripts/knowledge_store.py` 写入观察记录；使用 `scripts/camera_profile_store.py` 更新 `knowledge/camera_profiles.json`，让下一次任务复用摄像头画像。
@@ -28,15 +49,18 @@ description: Orchestrate intelligent fire patrols for camera and video streams. 
 - 将模型推理视为可替换服务。优先通过配置接入检测 API，不把具体模型或服务实现写死在工作流里。
 - 不假设每路摄像头都有准确场景标签。缺少场景时，使用 unknown 默认策略或弱线索推导的倾向策略。
 - 当用户一次性提交大量视频流且没有逐路场景时，使用 `patrol_mode: "bulk_scout"` 对 unknown 流轻量普查；如果某一路有厨房、配电间、仓库等明确线索，则直接使用对应场景的精细化策略。
-- 支持跨任务复用 camera profile。用户先提交 3 路、下次扩展到 5 路时，已出现过的流应通过 `source_id` 或 `stream_url_hash` 复用历史画像；新增流再按本次 hints 或 unknown 策略处理。
+- 支持跨任务复用 camera profile。用户先提交 3 路、下次扩展到 5 路时，已出现过的流应通过 `source_id` 或 `stream_url_hash` 复用历史画像；新增流再按本次自然语言抽取出的 `hints` 或 unknown 策略处理。
 - 解释 predict-wise 参数选择。任何非默认的置信度、检测时长、抽帧间隔或 ROI 都要给出简短原因。
-- 优先使用视频级证据，不要只依赖单帧判断。综合连续性、类别组合、置信度趋势和场景历史。
+- 当前版本只生成每路视频流的初始 predict-wise profile，并在检测后给出 follow-up 建议；不要声称已支持运行中自动调频。长期巡检中的“无目标降频、疑似异常加密复检”属于下一阶段 adaptive patrol loop。
+- 优先使用视频级证据，不要只依赖单帧判断。综合连续性、类别组合、置信度趋势和场景历史；置信度趋势只描述当前采样窗口内的增强、消退、稳定或尖峰，不代表长期调度状态。
 - 知识演化必须分阶段。新经验先进入 `knowledge/pending_review.jsonl`，审核后才能成为可信场景知识。
 - 消防建议要保持克制。建议人工复核并遵循单位应急预案，不要把不确定模型输出说成事实。
 
 ## 巡检运行方式
 
 用户不需要手写 JSON。OpenClaw 应从用户消息中提取视频流地址和可选场景描述，形成临时 patrol request，再调用 `scripts/orchestrator.py`。
+
+`hints` 是内部中间结构，用来保存“这路可能是厨房”“室外通道”“配电间附近”等弱线索。用户没有提到场景时不要强行补充，保持 `scene_type: "unknown"` 且 `hints` 为空。
 
 脚本入口仍然接收 JSON，是为了让 OpenClaw 和本地测试有稳定的结构化接口。
 
@@ -52,7 +76,7 @@ description: Orchestrate intelligent fire patrols for camera and video streams. 
 .\tools\run-live-patrol.ps1 -RequestPath examples\local\patrol_live.json
 ```
 
-巡检目标示例：
+脚本接口中的临时巡检目标示例，用户不需要手写：
 
 ```json
 {
@@ -73,7 +97,7 @@ description: Orchestrate intelligent fire patrols for camera and video streams. 
 }
 ```
 
-如果用户只给地址，没有场景描述，则 `scene_type` 使用 `unknown`，`hints` 可以为空。FireWatch 先使用 unknown 默认策略，并在后续通过观察、用户确认和知识库迭代逐步形成摄像头画像。
+如果用户只给地址，没有场景描述，则 `scene_type` 使用 `unknown`，`hints` 为空。FireWatch 先使用 unknown 默认策略，并在后续通过观察、用户确认和知识库迭代逐步形成摄像头画像。
 
 大批量 unknown 示例：
 
@@ -109,7 +133,7 @@ description: Orchestrate intelligent fire patrols for camera and video streams. 
 第一轮：用户提交 stream-1、stream-2、stream-3。
 巡检后：FireWatch 写入 camera_profiles.json。
 第二轮：用户提交 stream-1、stream-2、stream-3、stream-4、stream-5。
-结果：前三路复用历史 camera profile；后两路按本次 hints 或 unknown 策略处理。
+结果：前三路复用历史 camera profile；后两路按本次自然语言抽取出的 hints 或 unknown 策略处理。
 ```
 
 ## 参考文件

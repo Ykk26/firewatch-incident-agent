@@ -38,6 +38,20 @@
 
 场景化决策不应写死在 `risk_assessor.py` 中。代码只读取 `profile.scene_reasoning_guidance`，具体场景知识由 `config.json`、`lessons_learned` 和 camera profile 提供。
 
+连续帧判断的距离阈值不应写死在聚合脚本中，应由 `config.json` 的 `temporal_policy.continuous_frame_gap` 控制。
+
+置信度趋势也属于视频级证据。聚合脚本应根据 `temporal_policy.trend_delta` 和 `temporal_policy.spike_margin` 输出 `confidence_trend`：
+
+```text
+rising：采样窗口内置信度整体增强；
+falling：采样窗口内置信度整体下降；
+stable：置信度波动不大；
+spiky：单点尖峰，前后不持续；
+insufficient：命中帧不足，无法判断趋势。
+```
+
+场景权重必须参与风险计算。`alert_bias.fire_weight` 和 `alert_bias.smoke_weight` 用于把模型返回的类别置信度转换为视频级有效证据分；例如厨房可以提高 fire 证据权重并降低 smoke 单独证据，配电间可以提高 smoke 证据权重。
+
 配置示例：
 
 ```json

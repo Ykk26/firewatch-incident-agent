@@ -17,11 +17,23 @@ def _bullet(items: Iterable[str]) -> str:
     return "\n".join(f"- {item}" for item in values)
 
 
+def _format_confidence_trend(trend: Dict[str, Any]) -> str:
+    if not trend:
+        return "insufficient"
+    label = trend.get("trend", "insufficient")
+    first = float(trend.get("first_confidence", 0.0))
+    last = float(trend.get("last_confidence", 0.0))
+    peak = float(trend.get("peak_confidence", 0.0))
+    delta = float(trend.get("delta", 0.0))
+    return f"{label} (first={first:.2f}, last={last:.2f}, peak={peak:.2f}, delta={delta:.2f})"
+
+
 def render_incident_report(event: Dict[str, Any]) -> str:
     template = (SKILL_DIR / "templates" / "incident_report.md").read_text(encoding="utf-8")
     profile = event["predict_profile"]
     evidence = event["temporal_evidence"]
     risk = event["risk"]
+    weighted_evidence = risk.get("weighted_evidence", {}) or {}
     return template.format(
         incident_id=event["incident_id"],
         source_id=event["source_id"],
@@ -35,9 +47,16 @@ def render_incident_report(event: Dict[str, Any]) -> str:
         priority=profile["priority"],
         profile_reason=profile["reason"],
         frames_analyzed=evidence["frames_analyzed"],
+        hit_frame_count=evidence.get("hit_frame_count", 0),
+        max_frame_index=evidence.get("max_frame_index", 0),
         hit_count=evidence["hit_count"],
         continuous_hit_count=evidence["continuous_hit_count"],
+        continuous_frame_gap=evidence.get("continuous_frame_gap", 0),
+        confidence_trend=_format_confidence_trend(evidence.get("confidence_trend", {})),
         max_confidence=f"{evidence['max_confidence']:.2f}",
+        effective_confidence=f"{weighted_evidence.get('effective_confidence', evidence['max_confidence']):.2f}",
+        fire_weight=f"{weighted_evidence.get('fire_weight', 1.0):.2f}",
+        smoke_weight=f"{weighted_evidence.get('smoke_weight', 1.0):.2f}",
         classes=", ".join(evidence["classes"]) or "none",
         risk_reasons=_bullet(risk["reasons"]),
         suggested_action=risk.get("suggested_action", "Verify the scene with on-site staff."),

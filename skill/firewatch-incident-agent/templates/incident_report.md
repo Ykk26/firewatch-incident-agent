@@ -18,9 +18,14 @@ False-positive risk: {false_positive_risk}
 ## Evidence
 
 - Frames analyzed: {frames_analyzed}
+- Hit frame count: {hit_frame_count}
+- Max frame index: {max_frame_index}
 - Hit count: {hit_count}
-- Continuous hits: {continuous_hit_count}
+- Continuous hits: {continuous_hit_count} (frame gap <= {continuous_frame_gap})
+- Confidence trend: {confidence_trend}
 - Max confidence: {max_confidence}
+- Effective confidence: {effective_confidence}
+- Scene weights: fire x{fire_weight}, smoke x{smoke_weight}
 - Classes: {classes}
 
 ## Risk Reasons

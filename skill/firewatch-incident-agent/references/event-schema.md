@@ -27,10 +27,31 @@
   },
   "temporal_evidence": {
     "frames_analyzed": 30,
+    "hit_frame_count": 3,
+    "max_frame_index": 120,
     "hit_count": 5,
     "max_confidence": 0.91,
     "classes": ["fire", "smoke"],
     "continuous_hit_count": 3,
+    "continuous_frame_gap": 60,
+    "confidence_trend": {
+      "trend": "rising",
+      "first_confidence": 0.42,
+      "last_confidence": 0.78,
+      "delta": 0.36,
+      "peak_confidence": 0.78,
+      "sample_count": 3,
+      "by_class": {
+        "fire": {
+          "trend": "rising",
+          "first_confidence": 0.42,
+          "last_confidence": 0.78,
+          "delta": 0.36,
+          "peak_confidence": 0.78,
+          "sample_count": 3
+        }
+      }
+    },
     "evidence_frames": []
   },
   "risk": {
@@ -38,7 +59,14 @@
     "event_type": "sustained_fire_or_smoke",
     "false_positive_risk": "low",
     "reasons": [],
-    "suggested_action": "建议立即人工复核，并按现场预案升级处置。"
+    "suggested_action": "建议立即人工复核，并按现场预案升级处置。",
+    "weighted_evidence": {
+      "fire_weight": 1.2,
+      "smoke_weight": 1.1,
+      "weighted_fire_confidence": 1.0,
+      "weighted_smoke_confidence": 0.72,
+      "effective_confidence": 1.0
+    }
   },
   "knowledge_refs": [],
   "created_at": "2026-04-20T14:32:10+08:00"
