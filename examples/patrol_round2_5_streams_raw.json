@@ -1,0 +1,41 @@
+{
+  "patrol_id": "round2-5-streams",
+  "mode": "patrol",
+  "patrol_mode": "bulk_scout",
+  "resource_budget": "fast",
+  "note": "第二轮任务：用户重新开始任务并扩展到 5 路。stream-1/2/3 应复用历史画像，stream-4/5 是新增流。",
+  "targets": [
+    {
+      "source_id": "stream-1",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-1",
+      "scene_type": "unknown",
+      "hints": {}
+    },
+    {
+      "source_id": "stream-2",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-2",
+      "scene_type": "unknown",
+      "hints": {}
+    },
+    {
+      "source_id": "stream-3",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-3",
+      "scene_type": "unknown",
+      "hints": {}
+    },
+    {
+      "source_id": "stream-4",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-4",
+      "scene_type": "unknown",
+      "hints": {
+        "location_hint": "用户说新增这一路可能是配电间"
+      }
+    },
+    {
+      "source_id": "stream-5",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-5",
+      "scene_type": "unknown",
+      "hints": {}
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Client for the existing fire-detection FastAPI service."""
+"""Client for a fire/smoke detection FastAPI service."""
 
 from __future__ import annotations
 

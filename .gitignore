@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Runtime outputs
+skill/firewatch-incident-agent/outputs/
+skill/firewatch-incident-agent/knowledge/observations.jsonl
+skill/firewatch-incident-agent/knowledge/incident_cases.jsonl
+skill/firewatch-incident-agent/knowledge/lessons_learned.jsonl
+skill/firewatch-incident-agent/knowledge/pending_review.jsonl
+skill/firewatch-incident-agent/knowledge/camera_profiles.json
+examples/local/
+
+# Local env
+.env
+*.env
+.venv/
+venv/
+
+# Logs/temp
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

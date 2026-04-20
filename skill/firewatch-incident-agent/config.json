@@ -1,11 +1,32 @@
 {
   "fire_detection_service_url": "http://36.103.239.143:8899",
   "default_resource_budget": "balanced",
+  "default_patrol_mode": "normal",
   "notify_on": ["medium", "high", "critical"],
+  "patrol_modes": {
+    "bulk_scout": {
+      "unknown_only": true,
+      "confidence": 0.5,
+      "duration": 8,
+      "interval": 2.0,
+      "priority": "normal",
+      "reason": "大批量未知视频流先使用轻量普查策略，避免对所有流直接精检。"
+    },
+    "normal": {
+      "reason": "常规巡检使用 camera profile 推导出的默认策略。"
+    },
+    "focused": {
+      "confidence_delta": -0.05,
+      "duration_multiplier": 1.3,
+      "interval_multiplier": 0.8,
+      "reason": "重点巡检会延长检测时间并提高抽帧密度。"
+    }
+  },
   "risk_thresholds": {
     "high_confidence": 0.75,
     "medium_confidence": 0.5,
     "low_confidence": 0.3,
+    "transient_fire_confidence": 0.8,
     "continuous_hits_for_high": 3,
     "continuous_hits_for_medium": 2
   },
@@ -15,35 +36,113 @@
       "duration": 30,
       "interval": 1.0,
       "priority": "high",
-      "reason": "Warehouse areas have higher fire-spread impact, so inspect longer and sample more densely."
+      "reason": "仓库区域火势扩散影响更高，因此检测时间更长、抽帧更密。"
     },
     "electrical_room": {
       "confidence": 0.3,
       "duration": 40,
       "interval": 0.8,
       "priority": "high",
-      "reason": "Electrical rooms should treat smoke as important even when confidence is low."
+      "reason": "配电间需要重视烟雾，即使置信度不高也应更密集观察。"
     },
     "kitchen": {
       "confidence": 0.5,
       "duration": 25,
       "interval": 1.5,
       "priority": "normal",
-      "reason": "Kitchen steam and normal flames can cause false positives, so require stronger evidence."
+      "reason": "厨房蒸汽和正常明火容易造成误报，因此需要更强证据。"
     },
     "outdoor": {
       "confidence": 0.6,
       "duration": 15,
       "interval": 2.0,
       "priority": "normal",
-      "reason": "Outdoor glare and headlights often mimic flames, so sample lightly with a higher threshold."
+      "reason": "室外反光和车灯容易模拟火焰，因此提高阈值并轻量抽帧。"
     },
     "unknown": {
       "confidence": 0.45,
       "duration": 20,
       "interval": 1.5,
       "priority": "normal",
-      "reason": "Unknown scenes use balanced defaults until enough observations exist."
+      "reason": "未知场景先使用平衡默认策略，等待积累更多观察记录。"
+    }
+  },
+  "hint_scene_mapping": {
+    "indoor_outdoor": {
+      "outdoor": "outdoor"
+    },
+    "risk_zone": {
+      "high": "warehouse"
+    },
+    "location_keywords": {
+      "仓库": "warehouse",
+      "库房": "warehouse",
+      "货架": "warehouse",
+      "配电": "electrical_room",
+      "电气": "electrical_room",
+      "电柜": "electrical_room",
+      "厨房": "kitchen",
+      "后厨": "kitchen",
+      "室外": "outdoor",
+      "园区": "outdoor",
+      "通道": "outdoor"
+    }
+  },
+  "scene_reasoning_guidance": {
+    "kitchen": {
+      "common_false_positive_patterns": ["蒸汽", "油烟", "正常炉灶明火"],
+      "policy": "厨房场景中 smoke 容易由蒸汽或油烟造成误报，应提高明火证据权重，并结合连续帧和 fire/smoke 组合判断是否告警。",
+      "alert_bias": {
+        "fire_weight": 1.3,
+        "smoke_weight": 0.8,
+        "allow_transient_fire": true,
+        "require_temporal_for_smoke_only": true,
+        "followup_on_transient": true
+      }
+    },
+    "outdoor": {
+      "common_false_positive_patterns": ["阳光反射", "车灯", "远处灯光"],
+      "policy": "室外场景容易出现 fire-like 反光，单帧低置信度不应直接升级，应要求更多连续帧或 smoke 伴随。",
+      "alert_bias": {
+        "fire_weight": 0.9,
+        "smoke_weight": 1.0,
+        "allow_transient_fire": true,
+        "require_temporal_for_smoke_only": true,
+        "followup_on_transient": true
+      }
+    },
+    "electrical_room": {
+      "common_false_positive_patterns": ["低照度噪声", "设备反光"],
+      "policy": "配电间应重视 smoke，即使置信度不高也应密集观察，但仍需人工复核。",
+      "alert_bias": {
+        "fire_weight": 1.1,
+        "smoke_weight": 1.3,
+        "allow_transient_fire": true,
+        "require_temporal_for_smoke_only": false,
+        "followup_on_transient": true
+      }
+    },
+    "warehouse": {
+      "common_false_positive_patterns": ["叉车灯", "焊接火花", "货架遮挡"],
+      "policy": "仓库场景火势扩散影响较高，连续 fire 或 fire+smoke 应提高优先级。",
+      "alert_bias": {
+        "fire_weight": 1.2,
+        "smoke_weight": 1.1,
+        "allow_transient_fire": true,
+        "require_temporal_for_smoke_only": true,
+        "followup_on_transient": true
+      }
+    },
+    "unknown": {
+      "common_false_positive_patterns": [],
+      "policy": "未知场景不做强假设，先使用平衡策略，依赖多帧连续性和后续人工反馈修正画像。",
+      "alert_bias": {
+        "fire_weight": 1.0,
+        "smoke_weight": 1.0,
+        "allow_transient_fire": true,
+        "require_temporal_for_smoke_only": true,
+        "followup_on_transient": true
+      }
     }
   },
   "knowledge_paths": {
@@ -51,6 +150,7 @@
     "incident_cases": "knowledge/incident_cases.jsonl",
     "lessons_learned": "knowledge/lessons_learned.jsonl",
     "pending_review": "knowledge/pending_review.jsonl",
+    "camera_profiles": "knowledge/camera_profiles.json",
     "source_index": "knowledge/source_index.json"
   },
   "output_dir": "outputs"

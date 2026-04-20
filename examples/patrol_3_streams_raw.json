@@ -1,0 +1,31 @@
+{
+  "patrol_id": "raw-3-streams-example",
+  "mode": "patrol",
+  "note": "真实使用时，OpenClaw 从用户自然语言输入中整理出这个结构。这里只保留原始视频流和可选场景线索，不包含检测结果。",
+  "resource_budget": "balanced",
+  "targets": [
+    {
+      "source_id": "stream-1",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-1",
+      "scene_type": "unknown",
+      "hints": {}
+    },
+    {
+      "source_id": "stream-2",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-2",
+      "scene_type": "unknown",
+      "hints": {
+        "location_hint": "用户说这一路可能是厨房或后厨"
+      }
+    },
+    {
+      "source_id": "stream-3",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-3",
+      "scene_type": "unknown",
+      "hints": {
+        "location_hint": "用户说这一路可能是室外通道",
+        "indoor_outdoor": "outdoor"
+      }
+    }
+  ]
+}

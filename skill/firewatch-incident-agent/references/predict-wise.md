@@ -11,16 +11,40 @@ Predict-wise 的含义是：每一路视频流都拥有独立推理策略。
 FireWatch 的做法是：
 
 ```text
-根据场景、历史经验和资源预算，为每一路流生成单独的 predict profile。
+不要求一开始知道准确场景；
+先构建 camera profile；
+再结合弱线索、历史经验和资源预算，为每一路流生成单独的 predict profile。
 ```
 
 ## 输入因素
 
-- `scene_type`：仓库、配电间、厨房、室外、办公区、未知场景。
+- `scene_type`：可选显式场景；没有时使用 unknown。
+- `hints`：弱线索，例如 indoor_outdoor、risk_zone、location_hint、user_label。
 - `resource_budget`：fast、balanced、thorough。
+- `patrol_mode`：bulk_scout、normal、focused。
 - `history`：真实火情、误报、演练、已审核经验。
 - `roi`：用户指定的检测区域。
 - `source_id`：具体摄像头或视频流 ID。
+
+## Camera Profile
+
+真实业务里，经常拿不到准确摄像头场景。FireWatch 不把场景标签当成强前提，而是先形成一个 camera profile：
+
+```json
+{
+  "source_id": "cam_001",
+  "declared_scene_type": "unknown",
+  "effective_scene_type": "outdoor",
+  "scene_confidence": 0.55,
+  "hints": {
+    "indoor_outdoor": "outdoor",
+    "user_label": "园区通道"
+  },
+  "basis": "未提供明确场景，根据 indoor_outdoor=outdoor 使用 outdoor 倾向策略。"
+}
+```
+
+`effective_scene_type` 只是当前巡检策略的工作假设，不等于事实标签。后续应通过人工确认和历史观察持续修正。
 
 ## 资源预算策略
 
@@ -36,7 +60,7 @@ FireWatch 的做法是：
 `balanced`：
 
 ```text
-使用场景默认参数
+使用 camera profile 推导出的默认参数
 适合常规巡检
 ```
 
@@ -50,6 +74,8 @@ FireWatch 的做法是：
 ```
 
 ## 场景策略
+
+下面的策略是 profile 模板，不要求摄像头一开始就被准确分类。
 
 仓库：
 
@@ -79,6 +105,54 @@ FireWatch 的做法是：
 
 ```text
 使用平衡参数，等待积累足够观察记录。
+```
+
+## 弱线索策略
+
+当 `scene_type` 缺失或为 unknown 时，按以下顺序使用弱线索：
+
+```text
+1. indoor_outdoor=outdoor -> outdoor 倾向策略
+2. location_hint/user_label/notes 中的关键词 -> 对应场景倾向策略
+3. risk_zone=high -> 高风险兜底倾向策略
+4. 仍无依据 -> unknown 默认策略
+```
+
+报告中必须说明这是“倾向策略”，避免把推断当成事实。
+
+## 大批量视频流策略
+
+当用户一次性提交大量视频流时，不要求用户逐路标注场景，也不要对所有视频流直接精检。
+
+推荐使用：
+
+```json
+{
+  "patrol_mode": "bulk_scout",
+  "resource_budget": "fast"
+}
+```
+
+`bulk_scout` 的含义：
+
+```text
+对没有场景线索的 unknown 流，使用短时长、大间隔、较高阈值的轻量普查策略；
+目标是先找出疑似异常流，避免一开始对所有流精检。
+```
+
+如果某一路有明确或可推断场景，例如用户说“这一路可能是厨房”，则不要套用 unknown 轻量普查，而是直接使用厨房精细化策略：
+
+```text
+厨房：考虑蒸汽/油烟误报，提高明火证据权重，要求连续帧或 fire/smoke 组合。
+配电间：重视 smoke，使用更密集观察。
+室外：提高阈值，避免反光/车灯误报。
+```
+
+这样可以同时支持：
+
+```text
+大量 unknown 流先省资源普查；
+已知重点场景直接精细化检测。
 ```
 
 ## 历史经验影响

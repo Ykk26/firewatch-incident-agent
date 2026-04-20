@@ -1,0 +1,43 @@
+{
+  "patrol_id": "bulk-unknown-streams-example",
+  "mode": "patrol",
+  "patrol_mode": "bulk_scout",
+  "note": "大量未知视频流示例。没有逐路场景时，unknown 流先轻量普查；带厨房/配电间等线索的流直接使用对应精细化策略。",
+  "resource_budget": "fast",
+  "targets": [
+    {
+      "source_id": "stream-1",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-1",
+      "scene_type": "unknown",
+      "hints": {}
+    },
+    {
+      "source_id": "stream-2",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-2",
+      "scene_type": "unknown",
+      "hints": {}
+    },
+    {
+      "source_id": "stream-3",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-3",
+      "scene_type": "unknown",
+      "hints": {
+        "location_hint": "用户说这一路可能是厨房"
+      }
+    },
+    {
+      "source_id": "stream-4",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-4",
+      "scene_type": "unknown",
+      "hints": {
+        "location_hint": "用户说这一路可能是配电间"
+      }
+    },
+    {
+      "source_id": "stream-5",
+      "stream_url": "rtsp://replace-with-your-camera-url/stream-5",
+      "scene_type": "unknown",
+      "hints": {}
+    }
+  ]
+}

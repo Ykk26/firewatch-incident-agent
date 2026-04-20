@@ -35,7 +35,8 @@ $ExcludeRelativePatterns = @(
     "knowledge\observations.jsonl",
     "knowledge\incident_cases.jsonl",
     "knowledge\lessons_learned.jsonl",
-    "knowledge\pending_review.jsonl"
+    "knowledge\pending_review.jsonl",
+    "knowledge\camera_profiles.json"
 )
 
 Get-ChildItem -LiteralPath $Source -Recurse -Force | ForEach-Object {
